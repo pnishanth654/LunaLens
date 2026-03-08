@@ -1,3 +1,1 @@
 backend/boulder_detection/vit_model.pth filter=lfs diff=lfs merge=lfs -text
-backend/boulder_detection/best.pt filter=lfs diff=lfs merge=lfs -text
-backend/landslide_detection/best.pt filter=lfs diff=lfs merge=lfs -text
