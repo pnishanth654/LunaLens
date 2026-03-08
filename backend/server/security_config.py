@@ -9,10 +9,46 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_origins():
+    local_origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    }
+
+    configured = set()
+    cors_origins = os.environ.get("CORS_ORIGINS", "")
+    if cors_origins:
+        configured.update(origin.strip() for origin in cors_origins.split(",") if origin.strip())
+
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if frontend_url:
+        configured.add(frontend_url)
+
+    return sorted(local_origins.union(configured))
+
+
+_explicit_allow_external = os.environ.get("ALLOW_EXTERNAL_ACCESS")
+_allow_external_access = (
+    _parse_bool(_explicit_allow_external)
+    if _explicit_allow_external is not None
+    else bool(os.environ.get("RENDER")) or os.environ.get("FLASK_CONFIG", "").lower() == "production"
+)
+_server_port = int(os.environ.get("PORT", "5000"))
+_server_host = "0.0.0.0" if _allow_external_access else "127.0.0.1"
+
 # Network Security Configuration
 NETWORK_SECURITY = {
     # Set to 'true' to allow external network access (NOT RECOMMENDED for development)
-    'allow_external_access': os.environ.get('ALLOW_EXTERNAL_ACCESS', 'false').lower() == 'true',
+    'allow_external_access': _allow_external_access,
     
     # Allowed hosts (localhost variants)
     'allowed_hosts': [
@@ -25,19 +61,14 @@ NETWORK_SECURITY = {
     'blocked_ips': set(),
     
     # Require HTTPS (set to 'true' in production)
-    'require_https': os.environ.get('REQUIRE_HTTPS', 'false').lower() == 'true',
+    'require_https': _parse_bool(os.environ.get('REQUIRE_HTTPS'), default=False),
     
     # Server binding configuration
-    'host': '127.0.0.1',  # Only bind to localhost
-    'port': 5000,         # Default port
+    'host': _server_host,
+    'port': _server_port,
     
     # CORS origins (only localhost variants)
-    'allowed_origins': [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173", 
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ]
+    'allowed_origins': _parse_origins()
 }
 
 # Security Headers

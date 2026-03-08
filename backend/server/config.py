@@ -3,15 +3,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _normalize_database_url(url):
+    # Render/Postgres may provide the deprecated postgres:// scheme.
+    if url and url.startswith('postgres://'):
+        return url.replace('postgres://', 'postgresql://', 1)
+    return url
+
 class Config:
     """Base configuration class"""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here')
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     
     # Database configuration (SQLite for Windows compatibility)
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        'sqlite:///lunalens.db'  # SQLite database file
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+        os.environ.get('DATABASE_URL', 'sqlite:///lunalens.db')  # SQLite database file
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
@@ -42,7 +48,9 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///lunalens_prod.db')
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+        os.environ.get('DATABASE_URL', 'sqlite:///lunalens_prod.db')
+    )
     
     # Security settings for production
     SESSION_COOKIE_SECURE = True

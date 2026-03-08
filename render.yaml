@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: lunalens-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements-render.txt
+    startCommand: gunicorn --chdir backend/server app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_CONFIG
+        value: production
+      - key: ALLOW_EXTERNAL_ACCESS
+        value: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true

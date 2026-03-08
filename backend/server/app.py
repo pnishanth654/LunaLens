@@ -731,7 +731,7 @@ def test_files():
                 files.append({
                     "filename": filename,
                     "path": f"/uploads/{filename}",
-                    "full_url": f"http://localhost:5000/uploads/{filename}",
+                    "full_url": f"{request.host_url.rstrip('/')}/uploads/{filename}",
                     "size": os.path.getsize(file_path)
                 })
     return jsonify({
@@ -978,5 +978,5 @@ if __name__ == '__main__':
     app.run(
         host=server_config['host'], 
         port=server_config['port'], 
-        debug=True
+        debug=app.config.get('DEBUG', False)
     )
