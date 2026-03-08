@@ -36,96 +36,13 @@
 
 LunaLens is a **comprehensive lunar analysis platform** that integrates advanced AI/ML techniques with geospatial processing to provide real-time lunar surface analysis capabilities.
 
-### 🎯 **Core Capabilities**
-- 🤖 **AI-Powered Boulder Detection** - YOLOv8 + Vision Transformer with enhanced sensitivity
-- 🗺️ **QGIS Terrain Risk Analysis** - Multi-parameter risk assessment (slope, aspect, roughness, etc.)
-- 🔐 **Secure Authentication** - JWT-based user management with role-based access
-- 📊 **Real-time Dashboard** - Interactive analytics and visualization
-- 📱 **Modern Web Interface** - React frontend with responsive design
-- 🎨 **Clean Visualizations** - Publication-ready detection overlays
-
-</div>
-
----
-
-## 🏗️ **Architecture Overview**
-
-<div style="background: linear-gradient(45deg, #4facfe, #00f2fe); padding: 25px; border-radius: 20px; margin: 25px 0;">
-
-### 🎨 **Frontend** (`frontend/website/`)
-- ⚛️ **React 18+** with modern hooks and routing
-- ⚡ **Vite** for lightning-fast development
-- 🎨 **Tailwind CSS** for beautiful styling
-- 📱 **Responsive design** for all devices
-- 🔐 **Protected routes** with JWT authentication
-
-### 🔧 **Backend** (`backend/server/`)
-- 🐍 **Python Flask** RESTful API
-- 🗄️ **SQLAlchemy ORM** with SQLite database
-- 🔐 **JWT Authentication** system
-- 📁 **File upload/management** with secure serving
-- 📝 **Comprehensive logging** and analytics
-
-### 🪨 **Boulder Detection** (`backend/boulder_detection/`)
-- 🎯 **YOLOv8** primary detection with enhanced multi-threshold pipeline
-- 🧠 **Vision Transformer** fallback for low-confidence detections
-- 📏 **Physical measurements** (diameter, volume, circularity, elongation)
-- 🎨 **Grad-CAM visualization** for interpretability
-- 🔍 **Small-object recovery** for improved recall
-- 📊 **Built-in evaluation** tools and metrics
-
-### 🌙 **QGIS Analysis** (`detection_qgis/`)
-- 🗺️ **QGIS integration** for geospatial processing
-- 📊 **Multi-parameter risk analysis** (slope, aspect, hillshade, roughness, etc.)
-- 🧮 **Weighted composite risk** scoring (0-100 scale)
-- 📈 **Real-time expressions** for QGIS Raster Calculator
-- 📄 **Comprehensive reporting** (JSON + human-readable)
-
-</div>
-
-## ISRO BAH 2025 Final Selected PPT
-Click the link to download the PPT 
-[View the PDF](./Bharatiya%20Antariksh%20Hackathon%202025%20Idea%20Submission.pdf)
-
----
-
-## 🚀 **Quick Start**
-
-<div style="background: linear-gradient(45deg, #ff6b35, #f7931e); padding: 25px; border-radius: 20px; margin: 25px 0;">
-
-### ⚡ **Prerequisites**
-- 🖥️ **Node.js** (v16+)
-- 🐍 **Python** (v3.9+)
-- 🗺️ **QGIS 3.x** (optional, for terrain analysis)
-- 📦 **npm** or **yarn**
-
-### 🎯 **Installation**
-
-```bash
-# Clone the repository
-git clone https://github.com/your-repo/lunalens.git
-cd lunalens
-
-# Frontend Setup
-cd frontend/website
-npm install
-npm run dev
-
-# Backend Setup (in new terminal)
-cd backend/server
-pip install -r ../requirements.txt
-python setup_database.py
-python app.py
-```
-
-🌐 **Frontend**: `http://localhost:5173` | 🔌 **Backend**: `http://localhost:5000`
-
-### 🔐 **Demo Access**
-| 🚀 Mission ID | 🔑 Access Code | 👤 Role |
+### ?? **Demo Access**
+| ?? Mission ID | ?? Access Code | ?? Role |
 |---------------|----------------|---------|
-| `isro123` | `moon@2024` | 👑 Admin |
-| `mission001` | `lunar@2024` | 👤 User |
-| `research002` | `research@2024` | 🔬 Researcher |
+| `isro123` | `isro123@2024` | ?? Admin |
+| `mission001` | `mission001@2024` | ?? User |
+| `research002` | `research002@2024` | ?? Researcher |
+| `test001` | `test001@2024` | ?? Test User |
 
 </div>
 
@@ -567,3 +484,5 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 [![Lunar Science](https://img.shields.io/badge/Lunar-Science-purple?style=for-the-badge)](https://github.com/your-repo/lunalens)
 
 </div>
+
+
