@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const Header = ({ onLogout, enableQgisAnalysis = false }) => {
+const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,18 +59,16 @@ const Header = ({ onLogout, enableQgisAnalysis = false }) => {
             >
               Boulder Detection
             </span>
-            {enableQgisAnalysis && (
-              <span
-                className={`transition-all duration-300 cursor-pointer font-medium ${
-                  isActive('/landslide') 
-                    ? 'text-red-300 border-b-2 border-red-300' 
-                    : 'text-gray-400 hover:text-red-300 hover:scale-105'
-                }`}
-                onClick={() => navigate('/landslide')}
-              >
-                Landslide Detection
-              </span>
-            )}
+            <span
+              className={`transition-all duration-300 cursor-pointer font-medium ${
+                isActive('/landslide') 
+                  ? 'text-red-300 border-b-2 border-red-300' 
+                  : 'text-gray-400 hover:text-red-300 hover:scale-105'
+              }`}
+              onClick={() => navigate('/landslide')}
+            >
+              Landslide Detection
+            </span>
           </nav>
           
           {/* User Section */}

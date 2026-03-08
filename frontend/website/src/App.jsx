@@ -13,7 +13,7 @@ import './App.css';
 const AuthenticatedLayout = ({ children, onLogout }) => {
   return (
     <div className="min-h-screen bg-gray-900">
-      <Header onLogout={onLogout} enableQgisAnalysis={ENABLE_QGIS_ANALYSIS} />
+      <Header onLogout={onLogout} />
       <div className="pt-20">
         {children}
       </div>
@@ -97,17 +97,11 @@ function App() {
           <Route
             path="/landslide"
             element={
-              isAuthenticated ? (
-                ENABLE_QGIS_ANALYSIS ? (
-                  <AuthenticatedLayout onLogout={handleLogout}>
-                    <LandslideDetection />
-                  </AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/dashboard" replace />
-                )
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              isAuthenticated ? 
+              <AuthenticatedLayout onLogout={handleLogout}>
+                <LandslideDetection enableAnalysis={ENABLE_QGIS_ANALYSIS} />
+              </AuthenticatedLayout> : 
+              <Navigate to="/login" replace />
             }
           />
           <Route 

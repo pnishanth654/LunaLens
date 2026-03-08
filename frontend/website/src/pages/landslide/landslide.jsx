@@ -120,7 +120,7 @@ function mapBackendResultsToAnalysisData(results) {
   };
 }
 
-const LandslideDetection = () => {
+const LandslideDetection = ({ enableAnalysis = false }) => {
   const [image, setImage] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -143,6 +143,11 @@ const LandslideDetection = () => {
   };
 
   const startAnalysis = async () => {
+    if (!enableAnalysis) {
+      setError('Landslide and terrain analysis is visible in UI, but disabled in this cloud deployment.');
+      return;
+    }
+
     if (!image) return;
     setIsAnalyzing(true);
     setError(null);
@@ -212,13 +217,13 @@ const LandslideDetection = () => {
                 isUploading={isUploading}
               />
                             
-                            {/* Analysis Button */}
+                          {/* Analysis Button */}
                             {image && (
                                 <button
                                     onClick={startAnalysis}
-                                    disabled={isAnalyzing}
+                                    disabled={isAnalyzing || !enableAnalysis}
                                     className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg ${
-                                        isAnalyzing
+                                        (isAnalyzing || !enableAnalysis)
                                             ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                             : 'bg-gradient-to-r from-blue-500 via-purple-500 to-orange-400 hover:from-blue-600 hover:to-orange-500 text-white hover:shadow-2xl hover:scale-105'
                                     }`}
@@ -229,9 +234,15 @@ const LandslideDetection = () => {
                                             <span>Analyzing...</span>
             </div>
                                     ) : (
-                                        <span>Start Analysis</span>
+                                        <span>{enableAnalysis ? 'Start Analysis' : 'Analysis Disabled (Cloud)'}</span>
                                     )}
                                 </button>
+                            )}
+
+                            {!enableAnalysis && (
+                                <div className="w-full rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+                                  Terrain/Landslide analysis UI is enabled, but backend execution is disabled in this deployment.
+                                </div>
                             )}
           </div>
 
