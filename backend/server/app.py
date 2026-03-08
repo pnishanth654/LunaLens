@@ -57,6 +57,12 @@ except ImportError as e:
 load_dotenv()
 
 
+def parse_bool(value, default=False):
+    if value is None:
+        return default
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 
 # Create Flask app
 app = Flask(__name__)
@@ -64,6 +70,13 @@ app = Flask(__name__)
 # Load configuration
 config_name = os.environ.get('FLASK_CONFIG', 'development')
 app.config.from_object(config[config_name])
+
+# Optional QGIS analysis feature flag.
+# Default: enabled for development/testing, disabled for production.
+ENABLE_QGIS_ANALYSIS = parse_bool(
+    os.environ.get('ENABLE_QGIS_ANALYSIS'),
+    default=(config_name != 'production')
+)
 
 # Initialize database
 init_db(app)
@@ -760,6 +773,12 @@ def test_image(filename):
 
 @app.route('/api/lunar-analysis', methods=['POST', 'OPTIONS'])
 def run_lunar_analysis():
+    if not ENABLE_QGIS_ANALYSIS:
+        return jsonify({
+            "success": False,
+            "message": "QGIS lunar analysis is disabled in this deployment."
+        }), 503
+
     print(f"🔍 Lunar analysis endpoint called with method: {request.method}")
     
     # Handle preflight OPTIONS request
@@ -925,11 +944,18 @@ def run_lunar_analysis():
 @app.route('/api/lunar-analysis/progress', methods=['GET'])
 def get_lunar_analysis_progress():
     """Get progress information for lunar analysis"""
+    if not ENABLE_QGIS_ANALYSIS:
+        return jsonify({
+            "success": False,
+            "message": "QGIS lunar analysis is disabled in this deployment."
+        }), 503
+
     try:
         json_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'detection_qgis', 'processed', 'json_results'))
         progress_file = os.path.join(json_dir, 'progress_info.json')
         
         if os.path.exists(progress_file):
+            import json
             with open(progress_file, 'r', encoding='utf-8') as f:
                 progress_data = json.load(f)
             

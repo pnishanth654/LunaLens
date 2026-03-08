@@ -6,13 +6,14 @@ import Analytics from './pages/analytics/analytics';
 import Boulder from './pages/boulder/boulder';
 import LandslideDetection from './pages/landslide/landslide';
 import Header from './components/Header';
+import { ENABLE_QGIS_ANALYSIS } from './config/features';
 import './App.css';
 
 // Layout wrapper for authenticated pages
 const AuthenticatedLayout = ({ children, onLogout }) => {
   return (
     <div className="min-h-screen bg-gray-900">
-      <Header onLogout={onLogout} />
+      <Header onLogout={onLogout} enableQgisAnalysis={ENABLE_QGIS_ANALYSIS} />
       <div className="pt-20">
         {children}
       </div>
@@ -93,15 +94,21 @@ function App() {
               <Navigate to="/login" replace />
             } 
           />
-          <Route 
-            path="/landslide" 
+          <Route
+            path="/landslide"
             element={
-              isAuthenticated ? 
-              <AuthenticatedLayout onLogout={handleLogout}>
-                <LandslideDetection />
-              </AuthenticatedLayout> : 
-              <Navigate to="/login" replace />
-            } 
+              isAuthenticated ? (
+                ENABLE_QGIS_ANALYSIS ? (
+                  <AuthenticatedLayout onLogout={handleLogout}>
+                    <LandslideDetection />
+                  </AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
           />
           <Route 
             path="/" 
