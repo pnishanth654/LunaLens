@@ -13,6 +13,10 @@
 Notes:
 - Free tier sleeps when idle.
 - SQLite data is ephemeral on free tier. Use Render Postgres for persistent DB.
+- Boulder detection requires model weights:
+  - `backend/boulder_detection/best.pt`
+  - `backend/boulder_detection/vit_model.pth`
+  If you don't commit them, set `YOLO_MODEL_URL` and `VIT_MODEL_URL` in Render.
 
 ## 2. Frontend on Vercel
 

@@ -5,6 +5,7 @@ import datetime
 import os
 import sys
 import numpy as np
+import urllib.request
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import traceback
@@ -113,6 +114,34 @@ ACTIVE_TOKENS = set()
 # Boulder detection controller
 boulder_controller = None
 
+
+def download_file_if_missing(path, url):
+    """Download a file only if missing and URL is provided."""
+    if os.path.exists(path):
+        return True
+    if not url:
+        return False
+
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        print(f"Downloading model from {url} to {path}")
+        urllib.request.urlretrieve(url, path)
+        return os.path.exists(path)
+    except Exception as e:
+        print(f"Failed to download model for {path}: {e}")
+        return False
+
+
+def ensure_boulder_models():
+    """Ensure required model files exist for boulder detection."""
+    boulder_dir = os.path.join(os.path.dirname(__file__), '..', 'boulder_detection')
+    yolo_path = os.path.join(boulder_dir, 'best.pt')
+    vit_path = os.path.join(boulder_dir, 'vit_model.pth')
+
+    yolo_ok = download_file_if_missing(yolo_path, os.environ.get('YOLO_MODEL_URL')) or os.path.exists(yolo_path)
+    vit_ok = download_file_if_missing(vit_path, os.environ.get('VIT_MODEL_URL')) or os.path.exists(vit_path)
+    return yolo_ok and vit_ok
+
 def init_boulder_detection():
     """Initialize boulder detection system"""
     global boulder_controller
@@ -127,6 +156,12 @@ def init_boulder_detection():
             os.chdir(boulder_dir)
             print(f"📁 Current directory after change: {os.getcwd()}")
             
+            if not ensure_boulder_models():
+                print("Boulder model files missing. Provide backend/boulder_detection/best.pt and vit_model.pth, or set YOLO_MODEL_URL and VIT_MODEL_URL.")
+                boulder_controller = None
+                os.chdir(original_dir)
+                return
+
             # Initialize controller
             print("🚀 Creating BoulderDetectionController...")
             boulder_controller = BoulderDetectionController()
@@ -1006,3 +1041,4 @@ if __name__ == '__main__':
         port=server_config['port'], 
         debug=app.config.get('DEBUG', False)
     )
+

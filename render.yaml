@@ -12,6 +12,11 @@ services:
         value: true
       - key: ENABLE_QGIS_ANALYSIS
         value: false
+      # Optional: set public model file URLs if weights are not in the repo.
+      # - key: YOLO_MODEL_URL
+      #   value: https://example.com/best.pt
+      # - key: VIT_MODEL_URL
+      #   value: https://example.com/vit_model.pth
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
