@@ -8,6 +8,8 @@ services:
     envVars:
       - key: FLASK_CONFIG
         value: production
+      - key: PYTHON_VERSION
+        value: 3.10.13
       - key: ALLOW_EXTERNAL_ACCESS
         value: true
       - key: ENABLE_QGIS_ANALYSIS
