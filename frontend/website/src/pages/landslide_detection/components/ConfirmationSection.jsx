@@ -15,9 +15,6 @@ const ConfirmationSection = ({ showConfirmation, selectedAnalysis, getAnalysisNa
             </i>
           </div>
           <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-gray-200 to-orange-300 bg-clip-text text-transparent">Analysis Initiated</h3>
-          <p className="text-gray-300 text-sm sm:text-base mb-6 sm:mb-7 leading-relaxed">
-            {getAnalysisName(selectedAnalysis)} has been initiated and is now processing lunar surface data...
-          </p>
           {error && (
             <div className="mb-4 p-3 sm:p-4 bg-gradient-to-r from-red-900 to-red-800 border-2 border-red-600 rounded-lg sm:rounded-xl">
               <p className="text-red-200 font-semibold text-xs sm:text-sm">{error}</p>

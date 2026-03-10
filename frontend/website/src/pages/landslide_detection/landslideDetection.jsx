@@ -98,47 +98,8 @@ const Landslide = () => {
       const analysisResult = await analyzeImage(uploadResult.filepath, LANDSLIDE_ANALYSIS_TYPE);
       
       if (analysisResult.success) {
-        // Process results with comprehensive data
-        const results = {
-          // Basic counts
-          totalObjects: analysisResult.analysis_summary?.total_objects || analysisResult.detected_objects.length,
-          landslides: analysisResult.analysis_summary?.landslide_count || analysisResult.detected_objects.filter(obj => obj.class_name === 'landslide').length,
-          
-          // Analysis metrics
-          density: analysisResult.density_analysis?.density || 0,
-          averageSize: analysisResult.analysis_summary?.average_diameter || analysisResult.detected_objects.reduce((sum, obj) => sum + obj.diameter_real, 0) / analysisResult.detected_objects.length || 0,
-          confidence: analysisResult.analysis_summary?.average_confidence || analysisResult.detected_objects.reduce((sum, obj) => sum + obj.confidence, 0) / analysisResult.detected_objects.length || 0,
-          processingTime: analysisResult.analysis_summary?.processing_time || 2.4,
-          
-          // Comprehensive data
-          detectedObjects: analysisResult.detected_objects,
-          additionalFiles: analysisResult.additional_files || [],
-          visualizationImage: analysisResult.additional_files?.find(file => file.type === 'visualization')?.path,
-          gradcamImage: analysisResult.additional_files?.find(file => file.type === 'gradcam')?.path,
-          
-          // Analysis summary
-          analysisSummary: analysisResult.analysis_summary || {},
-          densityAnalysis: analysisResult.density_analysis || {},
-          analysisType: analysisResult.analysis_type || LANDSLIDE_ANALYSIS_TYPE,
-          imageFilename: analysisResult.analysis_summary?.image_filename || 'Unknown'
-        };
-        
-        // Debug logging
-        console.log('Full analysis result:', analysisResult);
-        console.log('Processed results:', results);
-        console.log('Additional files:', analysisResult.additional_files);
-        console.log('Visualization image path:', results.visualizationImage);
-        console.log('Grad-CAM image path:', results.gradcamImage);
-        
-        // Test image URLs
-        if (results.visualizationImage) {
-          console.log('Testing visualization URL:', `http://localhost:5000${results.visualizationImage}`);
-        }
-        if (results.gradcamImage) {
-          console.log('Testing Grad-CAM URL:', `http://localhost:5000${results.gradcamImage}`);
-        }
-        
-        setAnalysisResults(results);
+        const visualizationImage = analysisResult.additional_files?.find(file => file.type === 'visualization')?.path;
+        setAnalysisResults({ visualizationImage });
       } else {
         setError(analysisResult.message || 'Analysis failed');
       }

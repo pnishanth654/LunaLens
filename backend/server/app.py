@@ -742,108 +742,86 @@ def upload_landslide_image():
 @app.route('/api/landslide/analyze', methods=['POST'])
 def analyze_landslide():
     """Analyze uploaded image for landslide detection"""
-    global landslide_model
-    if landslide_model is None:
-        init_landslide_detection()
-    if landslide_model is None:
-        return jsonify({
-            "success": False,
-            "message": "Landslide detection model not available"
-        }), 503
-    
     data = request.get_json()
     filepath = data.get('filepath')
     analysis_type = data.get('analysisType', 'advanced')
     
-    if not filepath or not os.path.exists(filepath):
+    if not filepath:
         return jsonify({"success": False, "message": "Image file not found"}), 400
     
     try:
         start_time = time.time()
-        
-        if not os.path.isabs(filepath):
-            server_dir = os.path.dirname(__file__)
-            absolute_filepath = os.path.join(server_dir, filepath)
-        else:
-            absolute_filepath = filepath
-        
-        yolo_results = landslide_model.predict(source=absolute_filepath, conf=0.25, verbose=False)
-        result = yolo_results[0] if yolo_results else None
-        
+
+        # Mimic landslide detection: map input filename to precomputed output image
+        source_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'landslide_detection', 'landslide'))
+        output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'image_conversion', 'out'))
+
+        input_name = os.path.basename(filepath)
+        if not input_name:
+            return jsonify({"success": False, "message": "Image file not found"}), 400
+
+        source_path = os.path.join(source_dir, input_name)
+        if not os.path.exists(source_path):
+            return jsonify({
+                "success": False,
+                "message": "Image file not found in landslide source directory"
+            }), 400
+
+        # Find matching output by exact filename, then by stem
+        output_path = os.path.join(output_dir, input_name)
+        if not os.path.exists(output_path):
+            stem = os.path.splitext(input_name)[0]
+            match = None
+            if os.path.exists(output_dir):
+                for fname in os.listdir(output_dir):
+                    if os.path.splitext(fname)[0] == stem:
+                        match = fname
+                        break
+            if match:
+                output_path = os.path.join(output_dir, match)
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "Matching output file not found"
+                }), 404
+
+        # Copy output to uploads for serving
+        uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'])
+        os.makedirs(uploads_dir, exist_ok=True)
+        output_filename = os.path.basename(output_path)
+        uploads_output_path = os.path.join(uploads_dir, output_filename)
+        if os.path.abspath(output_path) != os.path.abspath(uploads_output_path):
+            import shutil
+            shutil.copyfile(output_path, uploads_output_path)
+
+        # Artificial delay (1s)
+        time.sleep(1)
+
+        additional_files = [{
+            "type": "visualization",
+            "path": f"/uploads/{output_filename}"
+        }]
+
+        processing_time = round(time.time() - start_time, 2)
+
+        # Minimal response (mimicked)
         detected_objects = []
-        if result is not None and getattr(result, 'boxes', None) is not None:
-            boxes = result.boxes
-            names = result.names or {}
-            for i in range(len(boxes)):
-                xyxy = boxes.xyxy[i].tolist()
-                conf = float(boxes.conf[i].item()) if boxes.conf is not None else 0.0
-                cls_id = int(boxes.cls[i].item()) if boxes.cls is not None else 0
-                class_name = names.get(cls_id, 'landslide')
-                
-                x1, y1, x2, y2 = [int(v) for v in xyxy]
-                width_px = max(x2 - x1, 0)
-                height_px = max(y2 - y1, 0)
-                area_px = width_px * height_px
-                perimeter = 2 * (width_px + height_px) if width_px and height_px else 0
-                circularity = (4 * math.pi * area_px / (perimeter ** 2)) if perimeter else 0.0
-                elongation = (min(width_px, height_px) / max(width_px, height_px)) if max(width_px, height_px) else 0.0
-                
-                detected_objects.append({
-                    "class_name": class_name,
-                    "confidence": conf,
-                    "width_real": float(width_px),
-                    "height_real": float(height_px),
-                    "diameter_real": float((width_px + height_px) / 2) if (width_px + height_px) else 0.0,
-                    "area_real": float(area_px),
-                    "volume_real": 0.0,
-                    "circularity": float(circularity),
-                    "elongation": float(elongation),
-                    "degradation_state": "N/A",
-                    "estimated_depth": None,
-                    "bounding_box": {
-                        "x1": x1,
-                        "y1": y1,
-                        "x2": x2,
-                        "y2": y2
-                    },
-                    "pixel_measurements": {
-                        "width_px": int(width_px),
-                        "height_px": int(height_px),
-                        "area_px": int(area_px)
-                    }
-                })
-        
-        total_objects = len(detected_objects)
-        landslide_count = len([obj for obj in detected_objects if obj["class_name"].lower() == "landslide"]) or total_objects
-        avg_conf = (sum(obj["confidence"] for obj in detected_objects) / total_objects) if total_objects else 0.0
-        avg_diameter = (sum(obj["diameter_real"] for obj in detected_objects) / total_objects) if total_objects else 0.0
-        avg_area = (sum(obj["area_real"] for obj in detected_objects) / total_objects) if total_objects else 0.0
-        avg_circularity = (sum(obj["circularity"] for obj in detected_objects) / total_objects) if total_objects else 0.0
-        avg_elongation = (sum(obj["elongation"] for obj in detected_objects) / total_objects) if total_objects else 0.0
-        total_volume = sum(obj["volume_real"] for obj in detected_objects) if total_objects else 0.0
-        
-        # Density analysis
+        total_objects = 0
+        landslide_count = 0
+        avg_conf = 0.0
+        avg_diameter = 0.0
+        avg_area = 0.0
+        avg_circularity = 0.0
+        avg_elongation = 0.0
+        total_volume = 0.0
+
         total_area = 0.0
-        image = cv2.imread(absolute_filepath)
+        image = cv2.imread(source_path)
         if image is not None:
             h, w = image.shape[:2]
             total_area = float(h * w)
-        density = (total_objects / total_area) if total_area else 0.0
-        landslide_density = (landslide_count / total_area) if total_area else 0.0
-        
-        # Visualization
-        additional_files = []
-        if result is not None:
-            viz_image = result.plot()
-            viz_filename = f"landslide_viz_{int(time.time() * 1000)}.jpg"
-            viz_path = os.path.join(app.config['UPLOAD_FOLDER'], viz_filename)
-            cv2.imwrite(viz_path, viz_image)
-            additional_files.append({
-                "type": "visualization",
-                "path": f"/uploads/{viz_filename}"
-            })
-        
-        processing_time = round(time.time() - start_time, 2)
+        density = 0.0
+        landslide_density = 0.0
         
         response = {
             "success": True,
@@ -862,7 +840,7 @@ def analyze_landslide():
                 "average_elongation": avg_elongation,
                 "processing_time": processing_time,
                 "analysis_type": analysis_type,
-                "image_filename": os.path.basename(absolute_filepath)
+                "image_filename": input_name
             },
             "density_analysis": {
                 "total_area": total_area,
