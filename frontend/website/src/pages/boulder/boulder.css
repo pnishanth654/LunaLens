@@ -5,6 +5,31 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* Visible scrollbar for the Boulder page */
+.boulder-page {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+
+.boulder-page::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+
+.boulder-page::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.boulder-page::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 999px;
+  border: 2px solid #0f172a;
+}
+
+.boulder-page::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
 /* Custom fade-in animation */
 @keyframes fade-in {
   from {

@@ -4,7 +4,8 @@ import Login from './pages/login';
 import Dashboard from './pages/dashboard/dashboard';
 import Analytics from './pages/analytics/analytics';
 import Boulder from './pages/boulder/boulder';
-import LandslideDetection from './pages/landslide/landslide';
+import TerrainAnalysis from './pages/landslide/landslide';
+import LandslideDetection from './pages/landslide_detection/landslideDetection';
 import Header from './components/Header';
 import './App.css';
 
@@ -99,6 +100,16 @@ function App() {
               isAuthenticated ? 
               <AuthenticatedLayout onLogout={handleLogout}>
                 <LandslideDetection />
+              </AuthenticatedLayout> : 
+              <Navigate to="/login" replace />
+            } 
+          />
+          <Route 
+            path="/terrain" 
+            element={
+              isAuthenticated ? 
+              <AuthenticatedLayout onLogout={handleLogout}>
+                <TerrainAnalysis />
               </AuthenticatedLayout> : 
               <Navigate to="/login" replace />
             } 

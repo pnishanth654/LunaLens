@@ -69,6 +69,16 @@ const Header = ({ onLogout }) => {
             >
               Landslide Detection
             </span>
+            <span
+              className={`transition-all duration-300 cursor-pointer font-medium ${
+                isActive('/terrain') 
+                  ? 'text-cyan-300 border-b-2 border-cyan-300' 
+                  : 'text-gray-400 hover:text-cyan-300 hover:scale-105'
+              }`}
+              onClick={() => navigate('/terrain')}
+            >
+              Terrain Analysis
+            </span>
           </nav>
           
           {/* User Section */}

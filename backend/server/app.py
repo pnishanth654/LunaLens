@@ -1,13 +1,19 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file
 from flask_cors import CORS
 import jwt
 import datetime
 import os
 import sys
 import numpy as np
+import math
+import time
+import cv2
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import traceback
+from io import BytesIO
+from openpyxl import Workbook
+from ultralytics import YOLO
 
 # Import database components
 from models import db, User, Analysis, DetectedObject, DensityAnalysis, AnalysisSession, SystemLog
@@ -100,6 +106,10 @@ ACTIVE_TOKENS = set()
 # Boulder detection controller
 boulder_controller = None
 
+# Landslide detection model
+landslide_model = None
+LANDSLIDE_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'landslide_detection', 'best.pt')
+
 def init_boulder_detection():
     """Initialize boulder detection system"""
     global boulder_controller
@@ -135,6 +145,21 @@ def init_boulder_detection():
                 pass
     else:
         print("⚠️ Boulder detection modules not available")
+
+def init_landslide_detection():
+    """Initialize landslide detection model"""
+    global landslide_model
+    try:
+        if not os.path.exists(LANDSLIDE_MODEL_PATH):
+            print(f"⚠️ Landslide model not found at {LANDSLIDE_MODEL_PATH}")
+            landslide_model = None
+            return
+        print("🔄 Loading landslide detection model...")
+        landslide_model = YOLO(LANDSLIDE_MODEL_PATH)
+        print("✅ Landslide detection model loaded successfully!")
+    except Exception as e:
+        print(f"❌ Error initializing landslide detection model: {e}")
+        landslide_model = None
 
 def is_localhost_request():
     """Check if request is from localhost"""
@@ -445,23 +470,27 @@ def analyze_boulder():
                 "message": "No boulders detected in the image"
             }), 200
         
+        # Keep only boulders above 30% confidence for all outputs
+        CONFIDENCE_THRESHOLD = 0.30
+        filtered_objects = [
+            obj for obj in detected_objects
+            if getattr(obj, 'class_name', '').lower() == 'boulder' and float(getattr(obj, 'confidence', 0.0)) > CONFIDENCE_THRESHOLD
+        ]
+        
         # Prepare results
-        print(f"🔍 Preparing results for {len(detected_objects)} objects")
+        print(f"🔍 Preparing results for {len(filtered_objects)} filtered boulders")
         results = {
             "success": True,
-            "message": f"Detected {len(detected_objects)} objects",
+            "message": f"Detected {len(filtered_objects)} boulders above 30% confidence",
             "detected_objects": [],
             "analysis_type": analysis_type,
             "additional_files": []
         }
         
-        # Keep original objects for boulder detection functions, convert to dicts for response
-        original_objects = detected_objects.copy()
-        
-        # Convert objects to serializable format for response
+        # Convert filtered objects to serializable format for response
         processed_objects = []
-        for i, obj in enumerate(detected_objects):
-            print(f"🔍 Processing object {i+1}/{len(detected_objects)}")
+        for i, obj in enumerate(filtered_objects):
+            print(f"🔍 Processing filtered object {i+1}/{len(filtered_objects)}")
             try:
                 obj_data = {
                         "class_name": getattr(obj, 'class_name', 'unknown'),
@@ -494,8 +523,8 @@ def analyze_boulder():
                         "area_px": int(obj.area_px)
                     }
                 
-                # Only add objects with meaningful data (confidence > 0 and valid measurements)
-                if obj_data["confidence"] > 0.0 and obj_data["diameter_real"] > 0.0:
+                # Keep only meaningful filtered objects
+                if obj_data["diameter_real"] > 0.0:
                     processed_objects.append(obj_data)
                     print(f"✅ Object {i+1} processed successfully")
                 else:
@@ -507,10 +536,14 @@ def analyze_boulder():
                 continue
         
         results["detected_objects"] = processed_objects
+        results["applied_filters"] = {
+            "class_name": "boulder",
+            "min_confidence": CONFIDENCE_THRESHOLD
+        }
         
         # Add comprehensive analysis summary
         total_objects = len(results["detected_objects"])  # Use filtered results
-        boulders = [obj for obj in results["detected_objects"] if obj.get('class_name', '') == 'boulder']
+        boulders = results["detected_objects"]
         
         try:
             results["analysis_summary"] = {
@@ -543,14 +576,11 @@ def analyze_boulder():
             }
         
         # Perform additional analysis based on type
-        if analysis_type in ['advanced', 'full']:
-            # Calculate measurements
-            results["detected_objects"] = boulder_controller.calculate_measurements(results["detected_objects"])
         
         if analysis_type in ['gradcam', 'full']:
             # Generate Grad-CAM
             print(f"🔍 Generating Grad-CAM for analysis type: {analysis_type}")
-            gradcam_path = boulder_controller.generate_gradcam(absolute_filepath, original_objects)
+            gradcam_path = boulder_controller.generate_gradcam(absolute_filepath, filtered_objects)
             print(f"🔍 Grad-CAM path returned: {gradcam_path}")
             if gradcam_path:
                 # Move/copy the Grad-CAM image to uploads folder
@@ -588,7 +618,7 @@ def analyze_boulder():
                 print("❌ Grad-CAM generation failed - no path returned")
         
         # Always create detection visualization
-        viz_path = boulder_controller.create_visualization(absolute_filepath, original_objects)
+        viz_path = boulder_controller.create_visualization(absolute_filepath, filtered_objects)
         if viz_path:
             # Move/copy the visualization image to uploads folder
             import shutil
@@ -627,7 +657,7 @@ def analyze_boulder():
             print("❌ Visualization creation failed - no path returned")
         
         # Calculate density analysis
-        density_analysis = boulder_controller.calculate_density_analysis(original_objects, absolute_filepath)
+        density_analysis = boulder_controller.calculate_density_analysis(filtered_objects, absolute_filepath)
         results["density_analysis"] = density_analysis
         
         # Save to database if user is authenticated
@@ -683,6 +713,255 @@ def analyze_boulder():
             "success": False,
             "message": f"Error during analysis: {str(e)}",
             "error_details": str(e)
+        }), 500
+
+@app.route('/api/landslide/upload', methods=['POST'])
+def upload_landslide_image():
+    """Upload image for landslide detection"""
+    if 'image' not in request.files:
+        return jsonify({"success": False, "message": "No image file provided"}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "No file selected"}), 400
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        return jsonify({
+            "success": True,
+            "message": "Image uploaded successfully",
+            "filename": filename,
+            "filepath": filepath
+        }), 200
+    else:
+        return jsonify({"success": False, "message": "Invalid file type"}), 400
+
+@app.route('/api/landslide/analyze', methods=['POST'])
+def analyze_landslide():
+    """Analyze uploaded image for landslide detection"""
+    global landslide_model
+    if landslide_model is None:
+        init_landslide_detection()
+    if landslide_model is None:
+        return jsonify({
+            "success": False,
+            "message": "Landslide detection model not available"
+        }), 503
+    
+    data = request.get_json()
+    filepath = data.get('filepath')
+    analysis_type = data.get('analysisType', 'advanced')
+    
+    if not filepath or not os.path.exists(filepath):
+        return jsonify({"success": False, "message": "Image file not found"}), 400
+    
+    try:
+        start_time = time.time()
+        
+        if not os.path.isabs(filepath):
+            server_dir = os.path.dirname(__file__)
+            absolute_filepath = os.path.join(server_dir, filepath)
+        else:
+            absolute_filepath = filepath
+        
+        yolo_results = landslide_model.predict(source=absolute_filepath, conf=0.25, verbose=False)
+        result = yolo_results[0] if yolo_results else None
+        
+        detected_objects = []
+        if result is not None and getattr(result, 'boxes', None) is not None:
+            boxes = result.boxes
+            names = result.names or {}
+            for i in range(len(boxes)):
+                xyxy = boxes.xyxy[i].tolist()
+                conf = float(boxes.conf[i].item()) if boxes.conf is not None else 0.0
+                cls_id = int(boxes.cls[i].item()) if boxes.cls is not None else 0
+                class_name = names.get(cls_id, 'landslide')
+                
+                x1, y1, x2, y2 = [int(v) for v in xyxy]
+                width_px = max(x2 - x1, 0)
+                height_px = max(y2 - y1, 0)
+                area_px = width_px * height_px
+                perimeter = 2 * (width_px + height_px) if width_px and height_px else 0
+                circularity = (4 * math.pi * area_px / (perimeter ** 2)) if perimeter else 0.0
+                elongation = (min(width_px, height_px) / max(width_px, height_px)) if max(width_px, height_px) else 0.0
+                
+                detected_objects.append({
+                    "class_name": class_name,
+                    "confidence": conf,
+                    "width_real": float(width_px),
+                    "height_real": float(height_px),
+                    "diameter_real": float((width_px + height_px) / 2) if (width_px + height_px) else 0.0,
+                    "area_real": float(area_px),
+                    "volume_real": 0.0,
+                    "circularity": float(circularity),
+                    "elongation": float(elongation),
+                    "degradation_state": "N/A",
+                    "estimated_depth": None,
+                    "bounding_box": {
+                        "x1": x1,
+                        "y1": y1,
+                        "x2": x2,
+                        "y2": y2
+                    },
+                    "pixel_measurements": {
+                        "width_px": int(width_px),
+                        "height_px": int(height_px),
+                        "area_px": int(area_px)
+                    }
+                })
+        
+        total_objects = len(detected_objects)
+        landslide_count = len([obj for obj in detected_objects if obj["class_name"].lower() == "landslide"]) or total_objects
+        avg_conf = (sum(obj["confidence"] for obj in detected_objects) / total_objects) if total_objects else 0.0
+        avg_diameter = (sum(obj["diameter_real"] for obj in detected_objects) / total_objects) if total_objects else 0.0
+        avg_area = (sum(obj["area_real"] for obj in detected_objects) / total_objects) if total_objects else 0.0
+        avg_circularity = (sum(obj["circularity"] for obj in detected_objects) / total_objects) if total_objects else 0.0
+        avg_elongation = (sum(obj["elongation"] for obj in detected_objects) / total_objects) if total_objects else 0.0
+        total_volume = sum(obj["volume_real"] for obj in detected_objects) if total_objects else 0.0
+        
+        # Density analysis
+        total_area = 0.0
+        image = cv2.imread(absolute_filepath)
+        if image is not None:
+            h, w = image.shape[:2]
+            total_area = float(h * w)
+        density = (total_objects / total_area) if total_area else 0.0
+        landslide_density = (landslide_count / total_area) if total_area else 0.0
+        
+        # Visualization
+        additional_files = []
+        if result is not None:
+            viz_image = result.plot()
+            viz_filename = f"landslide_viz_{int(time.time() * 1000)}.jpg"
+            viz_path = os.path.join(app.config['UPLOAD_FOLDER'], viz_filename)
+            cv2.imwrite(viz_path, viz_image)
+            additional_files.append({
+                "type": "visualization",
+                "path": f"/uploads/{viz_filename}"
+            })
+        
+        processing_time = round(time.time() - start_time, 2)
+        
+        response = {
+            "success": True,
+            "message": f"Detected {total_objects} objects",
+            "detected_objects": detected_objects,
+            "analysis_type": analysis_type,
+            "additional_files": additional_files,
+            "analysis_summary": {
+                "total_objects": total_objects,
+                "landslide_count": landslide_count,
+                "average_confidence": avg_conf,
+                "average_diameter": avg_diameter,
+                "average_area": avg_area,
+                "total_volume": total_volume,
+                "average_circularity": avg_circularity,
+                "average_elongation": avg_elongation,
+                "processing_time": processing_time,
+                "analysis_type": analysis_type,
+                "image_filename": os.path.basename(absolute_filepath)
+            },
+            "density_analysis": {
+                "total_area": total_area,
+                "landslide_density": landslide_density,
+                "density": density
+            }
+        }
+        
+        return jsonify(response), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "message": f"Landslide analysis failed: {str(e)}"
+        }), 500
+
+@app.route('/api/boulder/export-excel', methods=['POST'])
+def export_boulder_excel():
+    """Export filtered boulder detections and summaries to an Excel report."""
+    try:
+        payload = request.get_json() or {}
+        analysis = payload.get('analysisResults', payload)
+
+        detected_objects = analysis.get('detectedObjects') or analysis.get('detected_objects') or []
+        summary = analysis.get('analysisSummary') or analysis.get('analysis_summary') or {}
+        density = analysis.get('densityAnalysis') or analysis.get('density_analysis') or {}
+        applied_filters = analysis.get('appliedFilters') or analysis.get('applied_filters') or {}
+
+        wb = Workbook()
+        ws_summary = wb.active
+        ws_summary.title = "Summary"
+        ws_summary.append(["Metric", "Value"])
+        ws_summary.append(["Image Filename", analysis.get('imageFilename') or summary.get('image_filename') or "Unknown"])
+        ws_summary.append(["Analysis Type", analysis.get('analysisType') or summary.get('analysis_type') or "Unknown"])
+        ws_summary.append(["Total Filtered Objects", analysis.get('totalObjects') or summary.get('total_objects') or len(detected_objects)])
+        ws_summary.append(["Average Confidence", analysis.get('confidence') or summary.get('average_confidence') or 0])
+        ws_summary.append(["Average Diameter (m)", analysis.get('averageSize') or summary.get('average_diameter') or 0])
+        ws_summary.append(["Average Area (m^2)", summary.get('average_area', 0)])
+        ws_summary.append(["Total Volume (m^3)", summary.get('total_volume', 0)])
+        ws_summary.append(["Average Circularity", summary.get('average_circularity', 0)])
+        ws_summary.append(["Average Elongation", summary.get('average_elongation', 0)])
+        ws_summary.append(["Processing Time (s)", analysis.get('processingTime') or summary.get('processing_time') or 0])
+
+        ws_objects = wb.create_sheet("Detected Boulders")
+        ws_objects.append([
+            "Index", "Class", "Confidence", "Width (m)", "Height (m)", "Diameter (m)", "Area (m^2)", "Volume (m^3)",
+            "Circularity", "Elongation", "Degradation State",
+            "BBox X1", "BBox Y1", "BBox X2", "BBox Y2"
+        ])
+
+        for idx, obj in enumerate(detected_objects, start=1):
+            bbox = obj.get('bounding_box') or {}
+            px = obj.get('pixel_measurements') or {}
+            ws_objects.append([
+                idx,
+                obj.get('class_name', ''),
+                obj.get('confidence', 0),
+                obj.get('width_real', 0),
+                obj.get('height_real', 0),
+                obj.get('diameter_real', 0),
+                obj.get('area_real', 0),
+                obj.get('volume_real', 0),
+                obj.get('circularity', 0),
+                obj.get('elongation', 0),
+                obj.get('degradation_state', ''),
+                bbox.get('x1', ''),
+                bbox.get('y1', ''),
+                bbox.get('x2', ''),
+                bbox.get('y2', '')
+            ])
+
+        # Basic auto-width for readability
+        for ws in [ws_summary, ws_objects]:
+            for col in ws.columns:
+                max_len = 0
+                col_letter = col[0].column_letter
+                for cell in col:
+                    cell_val = str(cell.value) if cell.value is not None else ""
+                    if len(cell_val) > max_len:
+                        max_len = len(cell_val)
+                ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        filename = f"boulder_detection_report_{timestamp}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Excel export failed: {str(e)}"
         }), 500
 
 @app.route('/uploads/<filename>')
@@ -964,6 +1243,7 @@ def get_lunar_analysis_progress():
 if __name__ == '__main__':
     # Initialize boulder detection system
     init_boulder_detection()
+    init_landslide_detection()
     
     # Get server configuration from security settings
     server_config = get_server_config()

@@ -129,6 +129,7 @@ const Boulder = () => {
           // Analysis summary
           analysisSummary: analysisResult.analysis_summary || {},
           densityAnalysis: analysisResult.density_analysis || {},
+          appliedFilters: analysisResult.applied_filters || {},
           analysisType: analysisResult.analysis_type || selectedAnalysis,
           imageFilename: analysisResult.analysis_summary?.image_filename || 'Unknown'
         };
@@ -181,7 +182,7 @@ const Boulder = () => {
 
 
   return (
-    <div className="bg-gray-900 text-white overflow-x-hidden">
+    <div className="boulder-page bg-gray-900 text-white overflow-x-hidden h-screen overflow-y-auto">
       <main className="min-h-screen bg-gray-900">
         <HeroSection />
 
