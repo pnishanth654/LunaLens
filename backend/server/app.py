@@ -470,8 +470,8 @@ def analyze_boulder():
                 "message": "No boulders detected in the image"
             }), 200
         
-        # Keep only boulders above 30% confidence for all outputs
-        CONFIDENCE_THRESHOLD = 0.30
+        # Keep only boulders above the internal confidence threshold for all outputs
+        CONFIDENCE_THRESHOLD = 0.20
         filtered_objects = [
             obj for obj in detected_objects
             if getattr(obj, 'class_name', '').lower() == 'boulder' and float(getattr(obj, 'confidence', 0.0)) > CONFIDENCE_THRESHOLD
@@ -481,7 +481,7 @@ def analyze_boulder():
         print(f"🔍 Preparing results for {len(filtered_objects)} filtered boulders")
         results = {
             "success": True,
-            "message": f"Detected {len(filtered_objects)} boulders above 30% confidence",
+            "message": f"Detected {len(filtered_objects)} boulders",
             "detected_objects": [],
             "analysis_type": analysis_type,
             "additional_files": []

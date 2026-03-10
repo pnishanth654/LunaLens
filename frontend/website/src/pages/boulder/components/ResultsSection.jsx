@@ -44,6 +44,21 @@ const ResultsSection = ({ analysisResults, handleProceed }) => {
           )}
         </div>
 
+        <div className="mb-6 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6">
+          <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 text-gray-200">Grad-CAM Visualization</h4>
+          {analysisResults.gradcamImage ? (
+            <div className="max-w-full overflow-hidden rounded-lg sm:rounded-xl border-2 border-gray-600 shadow-lg">
+              <img
+                src={`http://localhost:5000${analysisResults.gradcamImage}`}
+                alt="Grad-CAM visualization"
+                className="w-full h-auto max-h-96 object-contain"
+              />
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">Grad-CAM visualization not available.</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="bg-blue-600/20 border border-blue-500/30 rounded-lg p-3">
             <p className="text-xs text-blue-200">Detected Boulders</p>

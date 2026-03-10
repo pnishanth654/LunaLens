@@ -18,8 +18,9 @@ class BoulderDetectionController:
     def __init__(self):
         """Initialize the controller with models from the boulder_detection folder."""
         # Model paths in the boulder_detection folder
-        self.yolo_model_path = "best.pt"
-        self.vit_model_path = "vit_model.pth"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.yolo_model_path = os.path.join(base_dir, "best.pt")
+        self.vit_model_path = os.path.join(base_dir, "vit_model.pth")
         
         # Validate model paths
         if not self._validate_model_paths():

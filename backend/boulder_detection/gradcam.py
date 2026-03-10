@@ -10,6 +10,7 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from typing import Optional, Tuple
+import math
 import os
 import sys
 
@@ -40,9 +41,22 @@ class GradCAMVisualizer:
     
     def setup_gradcam(self):
         """Setup Grad-CAM for both models."""
-        # Skip ViT Grad-CAM setup due to compatibility issues
-        print("⚠️ Skipping ViT Grad-CAM setup (using attention maps instead)")
+        # Setup ViT Grad-CAM
         self.vit_cam = None
+        try:
+            if hasattr(self.vit_model, 'blocks') and len(self.vit_model.blocks) > 0:
+                target_layer = self.vit_model.blocks[-1].norm1
+            else:
+                target_layer = self.vit_model
+            self.vit_cam = GradCAM(
+                model=self.vit_model,
+                target_layers=[target_layer],
+                reshape_transform=self._vit_reshape_transform
+            )
+            print("✅ ViT Grad-CAM setup successful")
+        except Exception as e:
+            print(f"⚠️ ViT Grad-CAM setup failed, using fallback attention maps: {e}")
+            self.vit_cam = None
         
         # Setup YOLO Grad-CAM with better target layer selection
         try:
@@ -116,10 +130,23 @@ class GradCAMVisualizer:
             Grad-CAM visualization or None if failed
         """
         try:
-            # Skip Grad-CAM for ViT due to compatibility issues
-            # Use fallback attention map instead
-            print("⚠️ Using fallback attention map for ViT (Grad-CAM not compatible)")
-            return self._create_fallback_attention_map(image)
+            if self.vit_cam is None:
+                print("⚠️ Using fallback attention map for ViT (Grad-CAM not available)")
+                return self._create_fallback_attention_map(image)
+
+            # Resize to ViT expected input size
+            vit_image = image.resize((224, 224))
+
+            # Preprocess input
+            input_tensor = preprocess_image(
+                np.array(vit_image).astype(np.float32) / 255.0,
+                mean=normalization_params['mean'],
+                std=normalization_params['std']
+            ).to(self.device)
+
+            targets = [ClassifierOutputTarget(class_id)]
+            grayscale_cam = self.vit_cam(input_tensor=input_tensor, targets=targets)[0, :]
+            return grayscale_cam
                 
         except Exception as e:
             print(f"❌ ViT attention map failed: {e}")
@@ -180,6 +207,26 @@ class GradCAMVisualizer:
             print(f"❌ Fallback attention map failed: {e}")
             # Return a simple uniform map
             return np.ones((224, 224, 3), dtype=np.float32)
+
+    def _vit_reshape_transform(self, tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Reshape ViT activations to (B, C, H, W) for Grad-CAM.
+        """
+        try:
+            if tensor.ndim != 3:
+                return tensor
+            # Remove class token
+            token_tensor = tensor[:, 1:, :]
+            num_tokens = token_tensor.shape[1]
+            side = int(math.sqrt(num_tokens))
+            if side * side != num_tokens:
+                # Fallback: return original if not square
+                return tensor
+            result = token_tensor.reshape(token_tensor.size(0), side, side, token_tensor.size(2))
+            result = result.permute(0, 3, 1, 2)
+            return result
+        except Exception:
+            return tensor
     
     def create_gradcam_visualization(self, image: np.ndarray, grayscale_cam: np.ndarray) -> np.ndarray:
         """
